@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:velo_core/velo_core.dart';
 
 import '../providers/app_providers.dart';
@@ -74,6 +75,17 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
     setState(() => _checkout = res.data['data'] as Map<String, dynamic>);
   }
 
+  Future<void> _openMaps() async {
+    final address = _order?['delivery_address']?.toString();
+    if (address == null || address.isEmpty) return;
+    final city = _order?['target_city']?.toString() ?? '';
+    final query = Uri.encodeComponent('$address $city'.trim());
+    final uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$query');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
   bool get _canAct {
     final status = _order?['order_status']?.toString();
     return status == 'dispatched' || status == 'picked_up' || status == 'ready_to_ship';
@@ -110,6 +122,15 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
                       _DetailRow(icon: Icons.person_outline, label: 'Customer', value: _order!['customer_name']?.toString() ?? '—'),
                       _DetailRow(icon: Icons.phone_outlined, label: 'Phone', value: _order!['customer_phone']?.toString() ?? '—'),
                       _DetailRow(icon: Icons.location_on_outlined, label: 'Address', value: _order!['delivery_address']?.toString() ?? '—'),
+                      if (_canAct)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: OutlinedButton.icon(
+                            onPressed: _openMaps,
+                            icon: const Icon(Icons.map_outlined),
+                            label: const Text('Navigate with Google Maps'),
+                          ),
+                        ),
                       _DetailRow(icon: Icons.location_city_outlined, label: 'City', value: _order!['target_city']?.toString() ?? '—'),
                       _DetailRow(
                         icon: Icons.payments_outlined,
