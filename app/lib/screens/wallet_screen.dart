@@ -48,6 +48,23 @@ class WalletScreen extends ConsumerWidget {
                       style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                     ),
                   ],
+                  if (w['recent_entries'] is List && (w['recent_entries'] as List).isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    Text('Earnings breakdown', style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    ...(w['recent_entries'] as List).map((e) {
+                      final entry = e as Map<String, dynamic>;
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 6),
+                        child: ListTile(
+                          dense: true,
+                          title: Text('${entry['entry_type'] ?? 'entry'}'.replaceAll('_', ' ')),
+                          subtitle: Text(entry['reference']?.toString() ?? entry['notes']?.toString() ?? ''),
+                          trailing: Text('₨ ${(JsonNum.parseDouble(entry['amount']) ?? 0).toStringAsFixed(0)}'),
+                        ),
+                      );
+                    }),
+                  ],
                 ],
               ),
               loading: () => const Center(child: CircularProgressIndicator()),
