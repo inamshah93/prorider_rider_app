@@ -32,6 +32,7 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.8
   flutter_riverpod: ^2.6.1
+  geolocator: ^13.0.4
   go_router: ^14.8.1
   qr_flutter: ^4.1.0
   velo_core:
