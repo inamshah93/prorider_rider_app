@@ -108,6 +108,7 @@ class ProfileScreen extends ConsumerWidget {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
+                      onTap: () => context.push('/documents'),
                     ),
                   ],
                 ),

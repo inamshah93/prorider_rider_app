@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:velo_core/velo_core.dart';
 
 import 'providers/app_providers.dart';
+import 'screens/documents_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/order_detail_screen.dart';
@@ -44,6 +45,7 @@ class RiderApp extends ConsumerWidget {
             GoRoute(path: '/stats', builder: (_, __) => const StatsScreen()),
             GoRoute(path: '/wallet', builder: (_, __) => const WalletScreen()),
             GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
+            GoRoute(path: '/documents', builder: (_, __) => const DocumentsScreen()),
             GoRoute(
               path: '/orders/:id',
               builder: (_, state) => OrderDetailScreen(

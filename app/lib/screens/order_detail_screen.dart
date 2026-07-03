@@ -1,6 +1,8 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:velo_core/velo_core.dart';
@@ -22,6 +24,7 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
   Map<String, dynamic>? _order;
   Map<String, dynamic>? _checkout;
   bool _loading = true;
+  XFile? _podPhoto;
 
   @override
   void initState() {
@@ -56,6 +59,43 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
     }
   }
 
+  Future<void> _accept() async {
+    await ref.read(apiProvider).post('/rider/orders/${widget.orderId}/accept');
+    ref.invalidate(assignmentsProvider);
+    await _load();
+  }
+
+  Future<void> _reject() async {
+    await ref.read(apiProvider).post('/rider/orders/${widget.orderId}/reject', data: {'reason': 'Not available'});
+    ref.invalidate(assignmentsProvider);
+    if (mounted) context.pop();
+  }
+
+  Future<void> _failed() async {
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        final c = TextEditingController();
+        return AlertDialog(
+          title: const Text('Failed delivery'),
+          content: TextField(
+            controller: c,
+            decoration: const InputDecoration(labelText: 'Reason', hintText: 'Customer not available'),
+            maxLines: 3,
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: const Text('Submit')),
+          ],
+        );
+      },
+    );
+    if (reason == null || reason.isEmpty) return;
+    await ref.read(apiProvider).post('/rider/orders/${widget.orderId}/failed', data: {'reason': reason});
+    ref.invalidate(assignmentsProvider);
+    if (mounted) context.pop();
+  }
+
   Future<void> _pickedUp() async {
     await ref.read(apiProvider).post('/rider/orders/${widget.orderId}/picked-up');
     ref.invalidate(assignmentsProvider);
@@ -64,10 +104,22 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
   }
 
   Future<void> _delivered() async {
-    await ref.read(apiProvider).post('/rider/orders/${widget.orderId}/delivered');
+    if (_podPhoto != null) {
+      final form = FormData.fromMap({
+        'pod_photo': await MultipartFile.fromFile(_podPhoto!.path, filename: 'pod.jpg'),
+      });
+      await ref.read(apiProvider).postMultipart('/rider/orders/${widget.orderId}/delivered', form);
+    } else {
+      await ref.read(apiProvider).post('/rider/orders/${widget.orderId}/delivered');
+    }
     ref.invalidate(assignmentsProvider);
     ref.invalidate(riderStatsProvider);
     if (mounted) context.pop();
+  }
+
+  Future<void> _pickPodPhoto() async {
+    final file = await ImagePicker().pickImage(source: ImageSource.camera, imageQuality: 75);
+    if (file != null) setState(() => _podPhoto = file);
   }
 
   Future<void> _loadCheckout() async {
@@ -86,8 +138,11 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
     }
   }
 
+  bool get _isPendingAssignment => _order?['assignment_status']?.toString() == 'pending';
+
   bool get _canAct {
     final status = _order?['order_status']?.toString();
+    if (_isPendingAssignment) return false;
     return status == 'dispatched' || status == 'picked_up' || status == 'ready_to_ship';
   }
 
@@ -139,11 +194,35 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
                         highlight: true,
                       ),
                       const Spacer(),
+                      if (_isPendingAssignment) ...[
+                        Card(
+                          color: Colors.orange.withValues(alpha: 0.08),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const Text('New assignment — accept to start delivery'),
+                                const SizedBox(height: 12),
+                                FilledButton(onPressed: _accept, child: const Text('Accept')),
+                                const SizedBox(height: 8),
+                                OutlinedButton(onPressed: _reject, child: const Text('Reject')),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                       if (_canAct && _order!['order_status'] != 'picked_up') ...[
                         SwipeConfirm(label: 'Swipe to confirm picked up', onComplete: _pickedUp),
                         const SizedBox(height: 16),
                       ],
                       if (_canAct && _order!['order_status'] == 'picked_up') ...[
+                        OutlinedButton.icon(
+                          onPressed: _failed,
+                          icon: const Icon(Icons.error_outline),
+                          label: const Text('Could not deliver'),
+                        ),
+                        const SizedBox(height: 12),
                         if (_checkout == null)
                           FilledButton(
                             onPressed: _loadCheckout,
@@ -155,6 +234,12 @@ class _OrderDetailScreenState extends ConsumerState<OrderDetailScreen> {
                           else
                             Text(_checkout!['terms'] ?? '', style: textTheme.bodyLarge),
                           const SizedBox(height: 16),
+                          OutlinedButton.icon(
+                            onPressed: _pickPodPhoto,
+                            icon: const Icon(Icons.camera_alt_outlined),
+                            label: Text(_podPhoto == null ? 'Add delivery photo (optional)' : 'Photo attached'),
+                          ),
+                          const SizedBox(height: 12),
                           SwipeConfirm(
                             label: 'Swipe to confirm delivered',
                             color: AppTheme.success,
