@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:geolocator/geolocator.dart';
 import 'package:velo_core/velo_core.dart';
@@ -7,12 +8,16 @@ class LocationTracker {
   LocationTracker(this._api);
 
   final ApiClient _api;
-  Timer? _timer;
   bool _running = false;
+  StreamSubscription<Position>? _sub;
 
   Future<bool> _ensurePermission() async {
     var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (Platform.isAndroid && permission == LocationPermission.whileInUse) {
+      // Ask again; Android shows the "Allow all the time" option.
       permission = await Geolocator.requestPermission();
     }
     return permission == LocationPermission.always || permission == LocationPermission.whileInUse;
@@ -24,24 +29,34 @@ class LocationTracker {
     if (!allowed) return;
 
     _running = true;
-    await _sendCurrent();
-    _timer = Timer.periodic(const Duration(seconds: 30), (_) => _sendCurrent());
+    await _sendCurrent(await Geolocator.getCurrentPosition(
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+    ));
+
+    // Prefer streaming updates; allows better route reconstruction.
+    _sub = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 25,
+      ),
+    ).listen((pos) => _sendCurrent(pos));
   }
 
   void stop() {
-    _timer?.cancel();
-    _timer = null;
+    _sub?.cancel();
+    _sub = null;
     _running = false;
   }
 
-  Future<void> _sendCurrent() async {
+  Future<void> _sendCurrent(Position pos) async {
     try {
-      final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-      );
       await _api.put('/rider/location', data: {
         'lat': pos.latitude,
         'lng': pos.longitude,
+        'recorded_at': pos.timestamp.toIso8601String(),
+        if (pos.accuracy.isFinite) 'accuracy_m': pos.accuracy,
+        if (pos.speed.isFinite) 'speed_mps': pos.speed,
+        if (pos.heading.isFinite) 'heading_deg': pos.heading,
       });
     } catch (_) {
       // Ignore transient GPS/network errors.

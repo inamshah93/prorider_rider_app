@@ -58,7 +58,7 @@ class RiderApp extends ConsumerWidget {
     );
 
     return MaterialApp.router(
-      title: 'Velo Rider',
+      title: 'ProRider Rider',
       theme: theme.copyWith(
         textTheme: theme.textTheme.copyWith(
           bodyLarge: theme.textTheme.bodyLarge?.copyWith(fontSize: 16),

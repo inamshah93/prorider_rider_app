@@ -2,7 +2,6 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:velo_core/velo_core.dart';
 
 import '../providers/app_providers.dart';
 
@@ -70,7 +69,7 @@ class _DocumentsScreenState extends ConsumerState<DocumentsScreen> {
                         const Text('Upload CNIC, license, or bike registration for admin verification.'),
                         const SizedBox(height: 12),
                         DropdownButtonFormField<String>(
-                          value: _type,
+                          initialValue: _type,
                           decoration: const InputDecoration(labelText: 'Document type', border: OutlineInputBorder()),
                           items: const [
                             DropdownMenuItem(value: 'cnic', child: Text('CNIC')),

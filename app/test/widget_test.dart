@@ -7,7 +7,7 @@ void main() {
     await tester.pumpWidget(const ProviderScope(child: RiderApp()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Velo Rider'), findsOneWidget);
+    expect(find.text('ProRider Rider'), findsOneWidget);
     expect(find.text('Sign in'), findsOneWidget);
   });
 }
